@@ -8,6 +8,7 @@ Installation
 Stable release
 --------------
 
+
 To install Private_swedish_mind, run this command in your terminal:
 
 .. code-block:: console

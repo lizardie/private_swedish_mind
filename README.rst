@@ -14,13 +14,7 @@ Private_swedish_mind
         :alt: Documentation Status
 
 
-.. image:: https://pyup.io/repos/github/raalesir/private_swedish_mind/shield.svg
-     :target: https://pyup.io/repos/github/raalesir/private_swedish_mind/
-     :alt: Updates
-
-
-
-Python Boilerplate contains all the boilerplate you need to create a Python package.
+Package for conducting analysis on conformity between GPS and Mobile Phone Network (MPN) data.
 
 
 * Free software: BSD license
@@ -30,7 +24,11 @@ Python Boilerplate contains all the boilerplate you need to create a Python pack
 Features
 --------
 
-* TODO
+* What is the discrepancy between GPS and MPN data?
+* How precise the location the MPN can provide?
+* How does it  affect the privacy of a person?
+
+Those  questions are being raised in this small research.
 
 Credits
 -------

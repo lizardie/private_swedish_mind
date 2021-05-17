@@ -1,5 +1,5 @@
 Welcome to Private_swedish_mind's documentation!
-======================================
+================================================
 
 .. toctree::
    :maxdepth: 2
