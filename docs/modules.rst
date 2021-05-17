@@ -41,7 +41,7 @@ Next, data is undergoing the following transformation:
 
 * for each `geometry_gps_csv` we build cell rings and for corresponding `geometry_mpn_csv` figure out to which ring **layer** it falls into.  Based on that we build a histogram for the layer  occurancies after moving  through the table.
 
-.. image:: pics/hist.png
+.. image:: pics/hist_ring.png
     :width: 600
     :alt: Alternative text
 
