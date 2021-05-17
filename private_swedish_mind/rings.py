@@ -1,3 +1,8 @@
+"""
+The  main file for the package
+==============================
+"""
+
 import geopandas as gpd
 import contextily as ctx
 from shapely.ops import unary_union
@@ -289,10 +294,10 @@ if __name__ == "__main__":
 
     antennas_gdp = prepare_antennas()
 
-    sweden = get_bounding_area()
+    # sweden = get_bounding_area()
     uppsala_lan = get_bounding_area(point=SWEREF_EPSG_uppsala)
 
-    antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, sweden)
+    # antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, sweden)
     antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, uppsala_lan)
 
     read_df = read_data(dates)
