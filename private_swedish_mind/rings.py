@@ -29,13 +29,14 @@ pd.set_option('display.max_colwidth', None)
 SVERIGE_CONTOUR = 'sverige_contour/sverige.shp'
 ALLA_KOMMUNER  = 'alla_kommuner/alla_kommuner.shp'
 
-dates  = ["2019-05-23", "2019-05-26", "2019-06-12", "2019-06-22", "2018-10-26_2018-10-27",
-         "2018-05-23_2018-05-24", "2017-11-20_2017-11-21"]
+# dates  = ["2019-05-23", "2019-05-26", "2019-06-12", "2019-06-22", "2018-10-26_2018-10-27",
+#          "2018-05-23_2018-05-24", "2017-11-20_2017-11-21"]
 
 geometry_gps_csv = 'geometry_gps_csv'
 geometry_mpn_csv = 'geometry_mpn_csv'
 SE_SHAPEFILES = 'se_shapefiles/se_1km.shp'
 
+DATA_DIR = 'data'
 
 
 def prepare_antennas():
@@ -192,21 +193,36 @@ def add_vcs_indexes(df, vcs):
         return None
 
 
-def read_data(dates):
+def read_data(dt):
     """
-    reading data for given dates
+    reading data from the folder `DATA_DIR` which start with `result`.
+    Returns Pandas DF, as a concatenation of all files
+
+    :param dt: Data path
+    :return: Pandas DF with `['timestamp', 'geometry_gps_csv', 'geometry_mpn_csv']`  columns
     """
-    paths = ['data/result' + date + '.csv' for date in dates]
+
+    paths = sorted(
+        [os.path.join(dt,f) for f in os.listdir(dt) if f.startswith('result')]
+    )
+
     dfs = []
 
     for path in paths:
-        tmp = pd.read_csv(path, parse_dates=['timestamp'])[['timestamp', 'geometry_gps_csv', 'geometry_mpn_csv']]
-        print(tmp.shape[0], path)
-        dfs.append(tmp)
+        try:
+            tmp = pd.read_csv(path, parse_dates=['timestamp'])[['timestamp', 'geometry_gps_csv', 'geometry_mpn_csv']]
+            print(tmp.shape[0], path)
+            #         tmp = tmp.drop_duplicates(subset=['geometry_gps_csv'])
+            #         print(tmp.shape[0], path)
+            dfs.append(tmp)
+        except IOError:
+            print('path %s is wrong. check it.' % path)
+            pass
+        except KeyError:
+            print("some keys are  missing... check it at: %s" %path)
+            pass
 
-    read_df = pd.concat(dfs, axis=0, ignore_index=True)
-
-    return read_df
+    return pd.concat(dfs, axis=0, ignore_index=True)
 
 
 def process_df(df):
@@ -300,7 +316,7 @@ if __name__ == "__main__":
     # antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, sweden)
     antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, uppsala_lan)
 
-    read_df = read_data(dates)
+    read_df = read_data(DATA_DIR)
     read_df = process_df(read_df.copy())
     print(type(uppsala_lan), type(read_df))
     read_df = get_objects_within_area(read_df.copy(), uppsala_lan.to_crs(WGS84_EPSG), geom='geometry_gps_csv')
