@@ -39,6 +39,12 @@ vc_index_gps = 'vc_index_gps'
 vc_index_mpn = 'vc_index_mpn'
 vc_gps_rings = 'vc_gps_rings'
 hist = 'hist'
+timestamp = 'timestamp'
+
+# columns in antennas files
+lat = 'llat'
+long = 'llong'
+
 
 SE_SHAPEFILES = 'se_shapefiles/se_1km.shp'
 
@@ -76,7 +82,6 @@ class AnalyseBasicJoinedData:
         reading data from the folder `DATA_DIR` which start with `result`.
         Returns Pandas DF, as a concatenation of all files
 
-        :param dt: Data path
         :return: Pandas DF with `['timestamp', 'geometry_gps_csv', 'geometry_mpn_csv']`  columns
         """
 
@@ -88,23 +93,21 @@ class AnalyseBasicJoinedData:
 
         for path in paths:
             try:
-                tmp = pd.read_csv(path, parse_dates=['timestamp'])[
-                    ['timestamp', 'geometry_gps_csv', 'geometry_mpn_csv']]
+                tmp = pd.read_csv(path, parse_dates=[timestamp])[
+                    [timestamp, geometry_gps_csv, geometry_mpn_csv]]
                 logger.info("number of lines: %s, location %s " %(tmp.shape[0], path))
                 #         tmp = tmp.drop_duplicates(subset=['geometry_gps_csv'])
                 #         print(tmp.shape[0], path)
                 dfs.append(tmp)
             except IOError:
-                # print('path %s is wrong. check it.' % path)
                 logger.error('path %s is wrong. check it.' % path)
                 pass
             except KeyError:
-                # print("some keys are  missing... check it at: %s" % path)
-                logger.error("some keys are  missing... check it at: %s" % path)
-
+                logger.warn("some keys are  missing... check it at: %s" % path)
                 pass
 
         return pd.concat(dfs, axis=0, ignore_index=True)
+
 
     def transform_df(self, ):
         """
@@ -123,7 +126,7 @@ class AnalyseBasicJoinedData:
             lambda lst: Point(float(lst[1:-1].split(',')[0]),
                               float(lst[1:-1].split(',')[1]))
         )
-        self.df = self.df.groupby('timestamp').agg({geometry_gps_csv: "first", geometry_mpn_csv: list})
+        self.df = self.df.groupby(timestamp).agg({geometry_gps_csv: "first", geometry_mpn_csv: list})
 
         self.df = gpd.GeoDataFrame(self.df, geometry=geometry_gps_csv, crs=WGS84_EPSG)  # .to_crs(SWEREF_EPSG)
 
@@ -173,8 +176,8 @@ class AnalyseBasicJoinedData:
         """
 
         try:
-            g3 = pd.read_csv(G3_ANTENNAS_PATH, sep=';')[['llat', 'llong']]
-            g4 = pd.read_csv(G4_ANTENNAS_PATH, sep=';')[['llat', 'llong']]
+            g3 = pd.read_csv(G3_ANTENNAS_PATH, sep=';')[[lat, long]]
+            g4 = pd.read_csv(G4_ANTENNAS_PATH, sep=';')[[lat, long]]
 
             antennas = pd.concat([g3, g4]).drop_duplicates().round(3)
 
@@ -184,7 +187,7 @@ class AnalyseBasicJoinedData:
 
             return antennas_gdp
         except IOError:
-            print("something is wrong with the antennas files")
+            logger.error("something is wrong with the antennas files: %s, %s"%(G3_ANTENNAS_PATH, G4_ANTENNAS_PATH))
 
             return None
 
@@ -199,9 +202,12 @@ class AnalyseBasicJoinedData:
         if point:
             contour = self._find_area(point)
         else:
-            contour = gpd.read_file(SVERIGE_CONTOUR)
-            contour.crs = WGS84_EPSG
-            contour.to_crs(SWEREF_EPSG, inplace=True)
+            try:
+                contour = gpd.read_file(SVERIGE_CONTOUR)
+                contour.crs = WGS84_EPSG
+                contour.to_crs(SWEREF_EPSG, inplace=True)
+            except IOError:
+                logger.error('error reading contour file: %s ' %SVERIGE_CONTOUR)
 
         return contour
 
@@ -222,7 +228,7 @@ class AnalyseBasicJoinedData:
             sweden = gpd.read_file(ALLA_KOMMUNER)
             sweden.crs = SWEREF_EPSG
         except IOError:
-            print('failed to read %s' % ALLA_KOMMUNER)
+            logger.error('failed to read %s' % ALLA_KOMMUNER)
 
         uppsala = Point(point)
 
@@ -234,7 +240,7 @@ class AnalyseBasicJoinedData:
         if not uppsala_lan.empty:
             return uppsala_lan
         else:
-            print('failed to find point %s in %s' % (point, ALLA_KOMMUNER))
+            logger.error('failed to find point %s in %s' % (point, ALLA_KOMMUNER))
 
 
     # def get_vcs_for_bounding_area(self):
@@ -266,10 +272,10 @@ class AnalyseBasicJoinedData:
 
                 return gpd.GeoDataFrame(objects_within, geometry=geom, crs=objects.crs).reset_index()
             else:
-                print("no objects found within area")
+                logger.error("no objects found within area! ")
 
         else:
-            print('Objects have different CRSs: %s and %s ' % (objects.crs, self.contour.crs))
+            logger.error('Objects have different CRSs: %s and %s ' % (objects.crs, self.contour.crs))
             # return None
 
 
@@ -280,14 +286,20 @@ class AnalyseBasicJoinedData:
         :return: GeoPandas DF with VCs
         """
 
-        coords = points_to_coords(self.antennas_data.geometry)
-        print(self.antennas_data.crs, self.contour.crs)
-        print(type(self.contour.geometry[0]))
-        poly_shapes, pts = voronoi_regions_from_coords(coords, self.contour.geometry[0])
+        if self.antennas_data.crs == self.contour.crs:
 
-        voronoi_polygons = gpd.GeoDataFrame({'geometry': poly_shapes}, crs=SWEREF_EPSG)
+            coords = points_to_coords(self.antennas_data.geometry)
+            print(self.antennas_data.crs, self.contour.crs)
+            print(type(self.contour.geometry[0]))
+            poly_shapes, pts = voronoi_regions_from_coords(coords, self.contour.geometry[0])
 
-        return voronoi_polygons
+            voronoi_polygons = gpd.GeoDataFrame({'geometry': poly_shapes}, crs=SWEREF_EPSG)
+
+            return voronoi_polygons
+
+        else:
+            logger.error('Objects have different CRSs: %s and %s ' % (self.antennas_data.crs, self.contour.crs))
+
 
 
 
@@ -301,7 +313,6 @@ class AnalyseBasicJoinedData:
             vc_gps_points = []
             vc_mpn_points = []
 
-            #     temp = vcs.to_crs(WGS84_EPSG).geometry
             temp = self.vcs.geometry
 
             for point in self.df.geometry_gps_csv:
@@ -320,7 +331,7 @@ class AnalyseBasicJoinedData:
 
             # return df
         else:
-            print('Objects have different CRSs: %s and %s '%(self.df.crs, self.vcs.crs))
+            logger.error('Objects have different CRSs: %s and %s '%(self.df.crs, self.vcs.crs))
             # return None
 
 
@@ -423,7 +434,7 @@ if __name__ == "__main__":
     s_handler = logging.StreamHandler()
     f_handler = logging.FileHandler('log.log')
 
-    formatter = logging.Formatter('%(asctime)s - %(module)s.%(funcName)s: %(message)s')
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s [%(module)s.%(funcName)s:%(lineno)d] : %(message)s')
     s_handler.setFormatter(formatter)
     f_handler.setFormatter(formatter)
     logger.addHandler(s_handler)
