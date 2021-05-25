@@ -289,8 +289,6 @@ class AnalyseBasicJoinedData:
         if self.antennas_data.crs == self.contour.crs:
 
             coords = points_to_coords(self.antennas_data.geometry)
-            print(self.antennas_data.crs, self.contour.crs)
-            print(type(self.contour.geometry[0]))
             poly_shapes, pts = voronoi_regions_from_coords(coords, self.contour.geometry[0])
 
             voronoi_polygons = gpd.GeoDataFrame({'geometry': poly_shapes}, crs=SWEREF_EPSG)
@@ -384,7 +382,7 @@ def get_rings_around_cell(cell_idx, vcs, width):
 def make_hist_mpn_geoms(mpn_geoms, cell_rings):
     """
     taking list of `mpn_geoms` and corresponding list of cell rings `cell_rings`.
-    Makes histogram for polulation of cell rings based in `mpn_geoms`.
+    Makes histogram for population of cell rings based in `mpn_geoms`.
 
 
     """
@@ -444,7 +442,7 @@ if __name__ == "__main__":
     logger.info("hello")
 
     if not os.path.isfile(SVERIGE_CONTOUR):
-        print(SVERIGE_CONTOUR + " does  not exist... creating")
+        logger.info(SVERIGE_CONTOUR + " does  not exist... creating")
         t = gpd.read_file(SE_SHAPEFILES)
         t.to_crs(WGS84_EPSG, inplace=True)
         g = t.geometry.unary_union
@@ -455,4 +453,4 @@ if __name__ == "__main__":
 
     print(data.process_position_data())
 
-    print('done')
+    logger.info('done')
