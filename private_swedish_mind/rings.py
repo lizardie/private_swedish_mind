@@ -29,11 +29,14 @@ SWEREF_EPSG_uppsala =  (647742, 6638924.00)
 SVERIGE_CONTOUR = 'sverige_contour/sverige.shp'
 ALLA_KOMMUNER  = 'alla_kommuner/alla_kommuner.shp'
 
-# dates  = ["2019-05-23", "2019-05-26", "2019-06-12", "2019-06-22", "2018-10-26_2018-10-27",
-#          "2018-05-23_2018-05-24", "2017-11-20_2017-11-21"]
 
 geometry_gps_csv = 'geometry_gps_csv'
 geometry_mpn_csv = 'geometry_mpn_csv'
+vc_index_gps = 'vc_index_gps'
+vc_index_mpn = 'vc_index_mpn'
+vc_gps_rings = 'vc_gps_rings'
+hist = 'hist'
+
 SE_SHAPEFILES = 'se_shapefiles/se_1km.shp'
 
 DATA_DIR = 'data'
@@ -47,23 +50,21 @@ class AnalyseBasicJoinedData:
     `WGS84_EPSG` projection.
     """
 
-    def __init__(self, point):
+    def __init__(self, point, n_layers):
         """
-        constructor
+        creates object
+
+        :param point: tuple like (647742, 6638924) describing a point within Lan, in  SWEREF_EPSG
+        :param n_layers: number of layers of Voronoi cells to build
         """
+
         print("reading data")
         self.df = self.read_data()
-        self.antennas_data = self.prepare_antennas()
+        print("reading antennas")
+        self.antennas_data = self.read_antennas()
         print('making bounding area')
         self.contour = self._get_bounding_area(point=point)
-
-        print("antennas before filtering ",self.antennas_data.shape)
-        print('filtering antennas data to be inside contour')
-        self.antennas_data = self.get_objects_within_area(self.antennas_data)
-        print("antennas after filtering ", self.antennas_data.shape)
-
-        print('making voronoi polygons')
-        self.vcs = self.create_voronoi_polygons().to_crs(WGS84_EPSG)
+        self.vcs = None
 
     @staticmethod
     def read_data():
@@ -98,7 +99,7 @@ class AnalyseBasicJoinedData:
 
         return pd.concat(dfs, axis=0, ignore_index=True)
 
-    def process_df(self, ):
+    def transform_df(self, ):
         """
         transforms string representation of a list to a Shapely point, and
         groups the data for each timestamp.
@@ -122,19 +123,28 @@ class AnalyseBasicJoinedData:
         # return df
 
 
-
     def process_position_data(self):
         """
 
         :return:
         """
+
+        print("antennas before filtering ", self.antennas_data.shape)
+        print('filtering antennas data to be inside contour')
+        self.antennas_data = self.get_objects_within_area(self.antennas_data)
+        print("antennas after filtering ", self.antennas_data.shape)
+
+        print('making voronoi polygons')
+        self.vcs = self.create_voronoi_polygons().to_crs(WGS84_EPSG)
+
+
         print("processing data")
-        self.process_df()
+        self.transform_df()
         print("processed data shape" ,self.df.shape)
         print('filtering  data to be inside contour')
 
         print("data before filtering:", self.df.shape)
-        self.df = self.get_objects_within_area(self.df.to_crs(SWEREF_EPSG), geom='geometry_gps_csv').to_crs(WGS84_EPSG)
+        self.df = self.get_objects_within_area(self.df.to_crs(SWEREF_EPSG), geom=geometry_gps_csv).to_crs(WGS84_EPSG)
         print("data after filtering:", self.df.shape)
 
         print('adding add_vcs_indexes')
@@ -144,10 +154,12 @@ class AnalyseBasicJoinedData:
         print("adding hist column")
         self.add_hist_column()
 
+        return self.df
+
 
 
     @staticmethod
-    def prepare_antennas():
+    def read_antennas():
         """
         reads and prepares antennas for whole Sweden.
         Returns a GeoPandas df with the antennas.
@@ -164,7 +176,7 @@ class AnalyseBasicJoinedData:
                 .to_crs(SWEREF_EPSG)
 
             return antennas_gdp
-        except:
+        except IOError:
             print("something is wrong with the antennas files")
 
             return None
@@ -240,15 +252,11 @@ class AnalyseBasicJoinedData:
                     objects_within.append(row)
 
             if objects_within:
-                # if hasattr(self, objects):
-                #     print(type(objects))
-                # else:
-                #     print("dfsffd")
+
                 return gpd.GeoDataFrame(objects_within, geometry=geom, crs=objects.crs).reset_index()
             else:
                 print("no objects found within area")
 
-            # return objects_within
         else:
             print('Objects have different CRSs: %s and %s ' % (objects.crs, self.contour.crs))
             # return None
@@ -256,9 +264,11 @@ class AnalyseBasicJoinedData:
 
     def create_voronoi_polygons(self):
         """
-        creates Voronoi polygons with antennas as centers, bounded by `bounding_geometry`
+        creates Voronoi polygons with `self.antennas_data` as centers, bounded by `self.contour`
 
+        :return: GeoPandas DF with VCs
         """
+
         coords = points_to_coords(self.antennas_data.geometry)
         print(self.antennas_data.crs, self.contour.crs)
         print(type(self.contour.geometry[0]))
@@ -291,11 +301,11 @@ class AnalyseBasicJoinedData:
                 t = []
                 for point in points:
                     for i, vc in enumerate(temp):
-                        if (point.within(vc)): t.append(i)
+                        if point.within(vc): t.append(i)
                 vc_mpn_points.append(t)
-            print(self.df.shape, len(vc_gps_points))
-            self.df['vc_index_gps'] = vc_gps_points
-            self.df['vc_index_mpn'] = vc_mpn_points
+            # print(self.df.shape, len(vc_gps_points))
+            self.df[vc_index_gps] = vc_gps_points
+            self.df[vc_index_mpn] = vc_mpn_points
 
             # return df
         else:
@@ -311,7 +321,7 @@ class AnalyseBasicJoinedData:
         """
         tmp = self.vcs.to_crs(WGS84_EPSG)
 
-        self.df['vc_gps_rings'] = self.df.apply(lambda row: get_rings_around_cell(row['vc_index_gps'], tmp, 6), axis=1)
+        self.df[vc_gps_rings] = self.df.apply(lambda row: get_rings_around_cell(row[vc_index_gps], tmp, 6), axis=1)
 
 
     def add_hist_column(self):
@@ -320,7 +330,7 @@ class AnalyseBasicJoinedData:
         :return:
         """
 
-        self.df['hist'] = self.df.apply(lambda row: make_hist_mpn_geoms(row['vc_index_mpn'], row['vc_gps_rings']),
+        self.df[hist] = self.df.apply(lambda row: make_hist_mpn_geoms(row[vc_index_mpn], row[vc_gps_rings]),
                                         axis=1)
 
 
@@ -402,30 +412,6 @@ if __name__ == "__main__":
 
     data = AnalyseBasicJoinedData(point=SWEREF_EPSG_uppsala)
 
-    data.process_position_data()
-
-    # antennas_gdp = prepare_antennas()
-    #
-    # # sweden = get_bounding_area()
-    # uppsala_lan = get_bounding_area(point=SWEREF_EPSG_uppsala)
-    #
-    #
-    # # antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, sweden)
-    # antennas_within, voronoi_polygons = get_vcs_for_bounding_area(antennas_gdp, uppsala_lan)
-    #
-    # read_df = read_data()
-    # read_df = process_df(read_df.copy())
-    # print(type(uppsala_lan), type(read_df))
-    # read_df = get_objects_within_area(read_df.copy(), uppsala_lan.to_crs(WGS84_EPSG), geom='geometry_gps_csv')
-    #
-    # read_df = add_vcs_indexes(read_df.copy(), voronoi_polygons.to_crs(WGS84_EPSG))
-    #
-    # tmp = voronoi_polygons.to_crs(WGS84_EPSG)
-    #
-    # read_df['vc_gps_rings'] = read_df.apply(lambda row: get_rings_around_cell(row['vc_index_gps'], tmp, 6), axis=1)
-    #
-    # read_df['hist'] = read_df.apply(lambda row: make_hist_mpn_geoms(row['vc_index_mpn'], row['vc_gps_rings']), axis=1)
-    #
-    # _plot_ring_hist(read_df['hist'])
+    print(data.process_position_data())
 
     print('done')
