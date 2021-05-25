@@ -15,6 +15,9 @@ import numpy as np
 
 import os
 
+import logging
+# import logging.handlers
+
 SOURCE_EPSG = 4326
 WGS84_EPSG  = 3857
 SWEREF_EPSG =  3006
@@ -22,14 +25,14 @@ SWEREF_EPSG =  3006
 G3_ANTENNAS_PATH = "antennas/UMTS.CSV.gz"
 G4_ANTENNAS_PATH = "antennas/LTE.CSV.gz"
 
-SWEREF_EPSG_uppsala =  (647742, 6638924.00)
+SWEREF_EPSG_uppsala =  (647742, 6638924)
 
 # pd.set_option('display.max_colwidth', None)
 
 SVERIGE_CONTOUR = 'sverige_contour/sverige.shp'
 ALLA_KOMMUNER  = 'alla_kommuner/alla_kommuner.shp'
 
-
+# column names of the DF
 geometry_gps_csv = 'geometry_gps_csv'
 geometry_mpn_csv = 'geometry_mpn_csv'
 vc_index_gps = 'vc_index_gps'
@@ -58,13 +61,14 @@ class AnalyseBasicJoinedData:
         :param n_layers: number of layers of Voronoi cells to build
         """
 
-        print("reading data")
+        logger.info("reading data")
         self.df = self.read_data()
-        print("reading antennas")
+        logger.info("reading antennas")
         self.antennas_data = self.read_antennas()
-        print('making bounding area')
+        logger.info('making bounding area')
         self.contour = self._get_bounding_area(point=point)
         self.vcs = None
+        self.n_layers = n_layers
 
     @staticmethod
     def read_data():
@@ -86,15 +90,18 @@ class AnalyseBasicJoinedData:
             try:
                 tmp = pd.read_csv(path, parse_dates=['timestamp'])[
                     ['timestamp', 'geometry_gps_csv', 'geometry_mpn_csv']]
-                print(tmp.shape[0], path)
+                logger.info("number of lines: %s, location %s " %(tmp.shape[0], path))
                 #         tmp = tmp.drop_duplicates(subset=['geometry_gps_csv'])
                 #         print(tmp.shape[0], path)
                 dfs.append(tmp)
             except IOError:
-                print('path %s is wrong. check it.' % path)
+                # print('path %s is wrong. check it.' % path)
+                logger.error('path %s is wrong. check it.' % path)
                 pass
             except KeyError:
-                print("some keys are  missing... check it at: %s" % path)
+                # print("some keys are  missing... check it at: %s" % path)
+                logger.error("some keys are  missing... check it at: %s" % path)
+
                 pass
 
         return pd.concat(dfs, axis=0, ignore_index=True)
@@ -129,29 +136,29 @@ class AnalyseBasicJoinedData:
         :return:
         """
 
-        print("antennas before filtering ", self.antennas_data.shape)
-        print('filtering antennas data to be inside contour')
-        self.antennas_data = self.get_objects_within_area(self.antennas_data)
-        print("antennas after filtering ", self.antennas_data.shape)
+        logger.info("antennas before filtering %s" %str(self.antennas_data.shape))
 
-        print('making voronoi polygons')
+        logger.info('filtering antennas data to be inside contour')
+        self.antennas_data = self.get_objects_within_area(self.antennas_data)
+        logger.info("antennas after filtering: %s " % str(self.antennas_data.shape))
+
+        logger.info('making voronoi polygons')
         self.vcs = self.create_voronoi_polygons().to_crs(WGS84_EPSG)
 
-
-        print("processing data")
+        logger.info("processing data")
         self.transform_df()
-        print("processed data shape" ,self.df.shape)
-        print('filtering  data to be inside contour')
+        logger.info("processed data shape: %s" % str(self.df.shape))
+        logger.info('filtering  data to be inside contour')
 
-        print("data before filtering:", self.df.shape)
+        logger.info("data before filtering: %s" %str(self.df.shape))
         self.df = self.get_objects_within_area(self.df.to_crs(SWEREF_EPSG), geom=geometry_gps_csv).to_crs(WGS84_EPSG)
-        print("data after filtering:", self.df.shape)
+        logger.info("data after filtering: %s" %str(self.df.shape))
 
-        print('adding add_vcs_indexes')
+        logger.info('adding add_vcs_indexes')
         self.add_vcs_indexes()
-        print('adding rings column')
+        logger.info('adding rings column')
         self.add_rings_column()
-        print("adding hist column")
+        logger.info("adding hist column")
         self.add_hist_column()
 
         return self.df
@@ -202,15 +209,19 @@ class AnalyseBasicJoinedData:
 
     def _find_area(self, point):
         """
-        given a point  within the area find that area in the table
+        given a point  within the area find that area in the table.
         Returns geoPandas DF with the geometry
+
+        :param point: tuple representing point within Sverige Lan
+        :return: GeoPandas DF with the Lan for the Point
         """
+
 
         sweden = None
         try:
             sweden = gpd.read_file(ALLA_KOMMUNER)
             sweden.crs = SWEREF_EPSG
-        except:
+        except IOError:
             print('failed to read %s' % ALLA_KOMMUNER)
 
         uppsala = Point(point)
@@ -295,7 +306,7 @@ class AnalyseBasicJoinedData:
 
             for point in self.df.geometry_gps_csv:
                 for i, vc in enumerate(temp):
-                    if (point.within(vc)): vc_gps_points.append(i)
+                    if point.within(vc): vc_gps_points.append(i)
 
             for points in self.df.geometry_mpn_csv:
                 t = []
@@ -316,18 +327,22 @@ class AnalyseBasicJoinedData:
 
     def add_rings_column(self):
         """
-        constructing rings column
-        :return:
+        constructing rings column `vc_gps_rings` centered around `vc_index_gps`.
+        The number of layers is given by `self.n_layers`.
+
+
+        :return: `vc_gps_rings` column to `self.df`
         """
         tmp = self.vcs.to_crs(WGS84_EPSG)
 
-        self.df[vc_gps_rings] = self.df.apply(lambda row: get_rings_around_cell(row[vc_index_gps], tmp, 6), axis=1)
+        self.df[vc_gps_rings] = self.df.apply(lambda row: get_rings_around_cell(row[vc_index_gps], tmp, self.n_layers), axis=1)
 
 
     def add_hist_column(self):
         """
-        adding histogram column
-        :return:
+        adding histogram by looping through mnp-indexes and vc-indexes
+
+        :return: column `hist`  to `self.df`
         """
 
         self.df[hist] = self.df.apply(lambda row: make_hist_mpn_geoms(row[vc_index_mpn], row[vc_gps_rings]),
@@ -400,7 +415,22 @@ def _plot_ring_hist(data):
 
 if __name__ == "__main__":
 
-    print("hello")
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    # handler = logging.handlers.SysLogHandler(address='/dev/log')
+    # handler = logging.handlers.SysLogHandler()
+    s_handler = logging.StreamHandler()
+    f_handler = logging.FileHandler('log.log')
+
+    formatter = logging.Formatter('%(asctime)s - %(module)s.%(funcName)s: %(message)s')
+    s_handler.setFormatter(formatter)
+    f_handler.setFormatter(formatter)
+    logger.addHandler(s_handler)
+    logger.addHandler(f_handler)
+
+
+    logger.info("hello")
 
     if not os.path.isfile(SVERIGE_CONTOUR):
         print(SVERIGE_CONTOUR + " does  not exist... creating")
@@ -410,7 +440,7 @@ if __name__ == "__main__":
         gpd.GeoDataFrame(geometry=gpd.GeoSeries(g)).to_file(SVERIGE_CONTOUR)
 
 
-    data = AnalyseBasicJoinedData(point=SWEREF_EPSG_uppsala)
+    data = AnalyseBasicJoinedData(point=SWEREF_EPSG_uppsala, n_layers=6)
 
     print(data.process_position_data())
 
