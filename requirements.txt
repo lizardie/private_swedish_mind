@@ -3,3 +3,4 @@ contextily==1.1.0
 geovoronoi
 Sphinx
 cloud-sptheme
+jupyter

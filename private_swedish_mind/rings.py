@@ -5,7 +5,6 @@ The  main file for the package
 
 import geopandas as gpd
 import contextily as ctx
-from shapely.ops import unary_union
 import pandas as pd
 from shapely.geometry import Point
 from geovoronoi import voronoi_regions_from_coords, points_to_coords
@@ -16,6 +15,12 @@ import numpy as np
 import os
 
 import logging
+
+try:
+    from private_swedish_mind.utils import make_hist_mpn_geoms, get_rings_around_cell
+except ModuleNotFoundError:
+    from utils import make_hist_mpn_geoms, get_rings_around_cell
+
 # import logging.handlers
 
 SOURCE_EPSG = 4326
@@ -103,7 +108,7 @@ class AnalyseBasicJoinedData:
                 logger.error('path %s is wrong. check it.' % path)
                 pass
             except KeyError:
-                logger.warn("some keys are  missing... check it at: %s" % path)
+                logger.warning("some keys are  missing... check it at: %s" % path)
                 pass
 
         return pd.concat(dfs, axis=0, ignore_index=True)
@@ -358,66 +363,10 @@ class AnalyseBasicJoinedData:
                                         axis=1)
 
 
-def get_rings_around_cell(cell_idx, vcs, width):
-    """
-    given the Voronoi cells `vcs`, the index of the cell `cell_idx` and the number of
-    layers `width`
-    creates a list of lists, where the first list contains indexes  of `vcs` for the zero layer,
-    the second -- for the first layer etc.
-    """
-
-    result = [vcs.iloc[cell_idx:cell_idx + 1]]
-    t = [[cell_idx]]
-    neighbours_dis = result[0].iloc[0].geometry
-    for layer in range(width):
-        neighbours = vcs[vcs.geometry.touches(neighbours_dis)]
-        t.append(neighbours.index.to_list())
-        result.append(neighbours)
-        neighbours = pd.concat(result)
-        neighbours_dis = unary_union(neighbours.geometry)
-
-    return t
-
-
-def make_hist_mpn_geoms(mpn_geoms, cell_rings):
-    """
-    taking list of `mpn_geoms` and corresponding list of cell rings `cell_rings`.
-    Makes histogram for population of cell rings based in `mpn_geoms`.
-
-
-    """
-
-    hist = []
-    for idx, ring in enumerate(cell_rings):
-        for geom in mpn_geoms:
-            if (geom in ring):
-                hist.append(idx)
-    return hist
 
 
 
 
-
-
-
-def _plot_ring_hist(data):
-    """
-    plotting histogram for rings
-    """
-
-    hst = [el for sublist in data.to_list() for el in sublist]
-    his = np.histogram(hst,bins=range(max(hst)+2))
-
-
-    plt.figure(figsize=(15,10))
-    plt.xlabel('ring number')
-    plt.ylabel('number of occurences')
-    plt.title("""Voronoi cell ring histogram for a GPS position
-    averaged over 5 minute intervals. Number of GPS positions is %i."""%(read_df.shape[0]))
-    plt.bar(his[1][0:-1],his[0])
-
-
-    plt.savefig('hist.png')
 
 
 
