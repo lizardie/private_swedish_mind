@@ -2,5 +2,5 @@ geopandas==0.9.0
 contextily==1.1.0
 geovoronoi
 #Sphinx
-#cloud-sptheme
+cloud-sptheme
 #jupyter
