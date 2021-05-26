@@ -65,3 +65,5 @@ def _plot_ring_hist(data):
 
 
     plt.savefig('hist.png')
+
+
