@@ -15,11 +15,15 @@ import numpy as np
 import os
 
 import logging
+import collections
+
 
 try:
-    from private_swedish_mind.utils import make_hist_mpn_geoms, get_rings_around_cell
+    from private_swedish_mind.utils import make_hist_mpn_geoms, get_rings_around_cell,make_group_col,get_vcs_used_area,\
+        vc_area_splits
 except ModuleNotFoundError:
-    from utils import make_hist_mpn_geoms, get_rings_around_cell
+    from utils import make_hist_mpn_geoms, get_rings_around_cell, make_group_col, get_vcs_used_area,\
+        vc_area_splits
 
 # import logging.handlers
 
@@ -137,12 +141,34 @@ class AnalyseBasicJoinedData:
 
         # return df
 
+    def remove_too_often_antennas(self):
+        """
+
+        :return:
+        """
+
+        most_common_antennas = collections.Counter(self.df[geometry_mpn_csv]).most_common(50)
+        # antennas[0].__str__()
+        # print(most_common_antennas)
+        most_common_antennas_name = [p[0] for p in most_common_antennas]
+
+        self.df = self.df[
+            ~self.df[geometry_mpn_csv].isin(most_common_antennas_name[:6])
+        ]
+
+
 
     def process_position_data(self):
         """
 
         :return:
         """
+
+
+        logger.info("before removing too often used antennas: %s" %str(self.df.shape))
+        self.remove_too_often_antennas()
+        logger.info("after removing too often used antennas: %s" %str(self.df.shape))
+
 
         logger.info("antennas before filtering %s" %str(self.antennas_data.shape))
 
@@ -168,6 +194,8 @@ class AnalyseBasicJoinedData:
         self.add_rings_column()
         logger.info("adding hist column")
         self.add_hist_column()
+        logger.info("adding hist groups...")
+        self.add_hist_groups_column()
 
         return self.df
 
@@ -348,6 +376,7 @@ class AnalyseBasicJoinedData:
         :return: `vc_gps_rings` column to `self.df`
         """
         tmp = self.vcs.to_crs(WGS84_EPSG)
+        # vc_used, area = get_vcs_used_area(tmp, self.df[[vc_index_gps, vc_index_mpn]], area_max=200)
 
         self.df[vc_gps_rings] = self.df.apply(lambda row: get_rings_around_cell(row[vc_index_gps], tmp, self.n_layers), axis=1)
 
@@ -361,6 +390,28 @@ class AnalyseBasicJoinedData:
 
         self.df[hist] = self.df.apply(lambda row: make_hist_mpn_geoms(row[vc_index_mpn], row[vc_gps_rings]),
                                         axis=1)
+
+
+
+    def add_hist_groups_column(self):
+        """
+        adding histograms for different groups of VC sizes
+
+        :return:
+        """
+        tmp = self.vcs.to_crs(WGS84_EPSG)
+        vc_used, area = get_vcs_used_area(tmp, self.df[[vc_index_gps, vc_index_mpn]], area_max=200)
+
+        size_borders = vc_area_splits(area, 3)
+
+        for key, size_ in enumerate(size_borders):
+            self.df['group' + str(key)] = self.df.apply(lambda row:
+                                                        make_group_col(row[vc_index_mpn], tmp, size_),
+                                                        axis=1)
+
+            self.df[hist + str(key)] = self.df[[hist, 'group' + str(key)]].apply(
+                lambda row: [el[0] for el in zip(row[hist], row['group' + str(key)]) if el[1] == True],
+                axis=1)
 
 
 
