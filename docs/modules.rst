@@ -54,7 +54,7 @@ The number for `ring=1` shows the number of times when MPN position is in the fi
     :width: 600
     :alt: Alternative text
 
-.. automodule:: private_swedish_mind.rings
+.. automodule:: private_swedish_mind.private_swedish_mind
    :members:
 
 
