@@ -4,7 +4,6 @@ The  main file for the package
 """
 
 import geopandas as gpd
-import contextily as ctx
 import pandas as pd
 from shapely.geometry import Point
 from geovoronoi import voronoi_regions_from_coords, points_to_coords
@@ -21,9 +20,18 @@ import collections
 try:
     from private_swedish_mind.utils import make_hist_mpn_geoms, get_rings_around_cell,make_group_col,get_vcs_used_area,\
         vc_area_splits
+
+    import private_swedish_mind.plots
+
 except ModuleNotFoundError:
     from utils import make_hist_mpn_geoms, get_rings_around_cell, make_group_col, get_vcs_used_area,\
         vc_area_splits
+
+    import plots
+
+
+
+
 
 # import logging.handlers
 
@@ -196,6 +204,8 @@ class AnalyseBasicJoinedData:
         self.add_hist_column()
         logger.info("adding hist groups...")
         self.add_hist_groups_column()
+        logger.info("adding distance column")
+        self.add_distance_column()
 
         return self.df
 
@@ -414,6 +424,45 @@ class AnalyseBasicJoinedData:
                 axis=1)
 
 
+    def add_distance_column(self):
+        """
+        adding distance column.
+
+
+        :return: list of distances  between GPS and each of MPN positions
+        """
+        self.df['distances'] = self.df.apply(lambda row: [row[geometry_gps_csv].distance(item) / 1000 \
+                                                      for item in row[geometry_mpn_csv]], axis=1)
+
+
+    def make_plots(self):
+        """
+        producing all the plots
+
+        :return:
+        """
+
+        logger.info('plotting  distance histogram')
+        plots._plot_dist_hist(self.df['distances'], bins1=20, bins2=2)
+        logger.info("plotting ring histogram")
+        plots._plot_ring_hist(self.df['hist'], density=False)
+
+        #
+        # vc_used, area = get_vcs_used_area(read_df[['vc_index_gps', 'vc_index_mpn']], area_max=200)
+        #
+        # _plot_visited_vcs_sizes(vc_used, area)
+        #
+        # size_borders = vc_area_splits(area, 3)
+        #
+        # size_borders_lst = _vc_index_area_match()
+        #
+        # _plot_ring_histogram_by_group(size_borders_lst)
+        #
+        # series_length = 10
+        # series_diffs_pd = make_diffs_ring_histogram_sample_size(read_df['hist'], series_length)
+        #
+        # _plot_ring_hist_diffs_sample_size(series_diffs_pd)
+
 
 if __name__ == "__main__":
 
@@ -445,5 +494,10 @@ if __name__ == "__main__":
     data = AnalyseBasicJoinedData(point=SWEREF_EPSG_uppsala, n_layers=6)
 
     print(data.process_position_data())
+
+    logger.info('making plots')
+
+    data.make_plots()
+
 
     logger.info('done')
