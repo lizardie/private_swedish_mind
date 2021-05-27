@@ -8,6 +8,7 @@ Welcome to Private_swedish_mind's documentation!
    readme
    installation
    usage
+   idea
    modules
    contributing
    authors
