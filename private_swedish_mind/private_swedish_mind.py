@@ -20,13 +20,13 @@ import collections
 try:
     from private_swedish_mind.utils import make_hist_mpn_geoms, get_rings_around_cell,make_group_col,get_vcs_used_area,\
         vc_area_splits
-
+    from private_swedish_mind.consts import  *
     import private_swedish_mind.plots
 
 except ModuleNotFoundError:
     from utils import make_hist_mpn_geoms, get_rings_around_cell, make_group_col, get_vcs_used_area,\
         vc_area_splits
-
+    from consts import *
     import plots
 
 
@@ -35,9 +35,9 @@ except ModuleNotFoundError:
 
 # import logging.handlers
 
-SOURCE_EPSG = 4326
-WGS84_EPSG  = 3857
-SWEREF_EPSG =  3006
+# SOURCE_EPSG = 4326
+# WGS84_EPSG  = 3857
+# SWEREF_EPSG =  3006
 
 G3_ANTENNAS_PATH = "antennas/UMTS.CSV.gz"
 G4_ANTENNAS_PATH = "antennas/LTE.CSV.gz"
@@ -92,6 +92,7 @@ class AnalyseBasicJoinedData:
         self.contour = self._get_bounding_area(point=point)
         self.vcs = None
         self.n_layers = n_layers
+        self.most_used_antennas = None
 
     @staticmethod
     def read_data():
@@ -159,7 +160,7 @@ class AnalyseBasicJoinedData:
         # antennas[0].__str__()
         # print(most_common_antennas)
         most_common_antennas_name = [p[0] for p in most_common_antennas]
-
+        self.most_used_antennas = most_common_antennas
         self.df = self.df[
             ~self.df[geometry_mpn_csv].isin(most_common_antennas_name[:6])
         ]
@@ -447,16 +448,22 @@ class AnalyseBasicJoinedData:
         logger.info("plotting ring histogram")
         plots._plot_ring_hist(self.df['hist'], density=False)
 
-        #
-        # vc_used, area = get_vcs_used_area(read_df[['vc_index_gps', 'vc_index_mpn']], area_max=200)
-        #
-        # _plot_visited_vcs_sizes(vc_used, area)
+        logger.info('plotting map and all visited VCs')
+        vc_used, area = get_vcs_used_area(self.vcs, self.df[[vc_index_gps, vc_index_mpn]], area_max=200)
+        plots._plot_visited_vcs_sizes(vc_used, area, area_max=200)
+
+        logger.info('plotting antennas usage histogram')
+        plots._plot_antennas_usage(self.most_used_antennas, nbins=50)
         #
         # size_borders = vc_area_splits(area, 3)
         #
         # size_borders_lst = _vc_index_area_match()
         #
-        # _plot_ring_histogram_by_group(size_borders_lst)
+        # plots._plot_ring_histogram_by_group(size_borders_lst)
+        logger.info('plotting ring histogram by group')
+        size_borders = vc_area_splits(area, 3)
+        plots._plot_ring_histogram_by_group(self.df[['hist', 'hist0', 'hist1', 'hist2']], size_borders)
+
         #
         # series_length = 10
         # series_diffs_pd = make_diffs_ring_histogram_sample_size(read_df['hist'], series_length)

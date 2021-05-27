@@ -8,6 +8,10 @@ import  matplotlib.pyplot  as plt
 import  numpy as np
 import contextily as ctx
 
+try:
+    from consts import  *
+except:
+    from private_swedish_mind.consts import  *
 
 def _plot_ring_hist(data, bins=None, density=True):
     """
@@ -140,7 +144,27 @@ def _plot_ring_histogram_by_group(data, size_borders):
                   (len(hst), data.shape[0]))
     # https://stackoverflow.com/questions/46913184/how-to-make-a-striped-patch-in-matplotlib
 
-    plt.savefig('../docs/pics/hist_ring_by_group.png', bbox_inches = "tight")
+    plt.savefig('../docs/pic1/hist_ring_by_group.png', bbox_inches = "tight")
+
+
+def _plot_antennas_usage(data, nbins=20, ):
+    x = [a[1] for a in data]
+    plt.figure(figsize=(12, 8))
+    # print(x)
+    nbins = 50
+    logbins = np.logspace(np.log10(min(x)), np.log10(max(x)), nbins + 2)
+    # print(logbins)
+
+    plt.hist(x, bins=logbins, edgecolor='black')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.title('Antennas usage distribution for %i distinct antennas, split into %i bins' % (len(x), nbins))
+    plt.xlabel('antenna usage number, log scale')
+    plt.ylabel("unique antenna number of occurrancies, log scale")
+    plt.grid()
+    plt.savefig('../docs/pic1/most_used_antennas.png', bbox_inches="tight")
+    # https://stackoverflow.com/questions/47850202/plotting-a-histogram-on-a-log-scale-with-matplotlib
+
 
 
 
