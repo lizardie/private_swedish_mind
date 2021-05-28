@@ -223,7 +223,7 @@ class AnalyseBasicJoinedData:
             g3 = pd.read_csv(G3_ANTENNAS_PATH, sep=';')[[lat, long]]
             g4 = pd.read_csv(G4_ANTENNAS_PATH, sep=';')[[lat, long]]
 
-            antennas = pd.concat([g3, g4]).drop_duplicates().round(3)
+            antennas = pd.concat([g3, g4]).round(3).drop_duplicates()
 
             antennas_gdp = gpd.GeoDataFrame(antennas, geometry=gpd.points_from_xy(antennas.llong, antennas.llat),
                                             crs=SOURCE_EPSG)[['geometry']] \
