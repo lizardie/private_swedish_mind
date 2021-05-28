@@ -314,7 +314,7 @@ class AnalyseBasicJoinedData:
 
             if objects_within:
 
-                return gpd.GeoDataFrame(objects_within, geometry=geom, crs=objects.crs).reset_index()
+                return gpd.GeoDataFrame(objects_within, geometry=geom, crs=objects.crs).reset_index(drop=True)
             else:
                 logger.error("no objects found within area! ")
 
