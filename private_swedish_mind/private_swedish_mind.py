@@ -376,7 +376,7 @@ class AnalyseBasicJoinedData:
 
             if objects_within:
 
-                return gpd.GeoDataFrame(objects_within, geometry=geom, crs=objects.crs).reset_index(drop=True)
+                return gpd.GeoDataFrame(objects_within, geometry=geom, crs=objects.crs).reset_index(drop=False)
             else:
                 logger.error("no objects found within area! ")
 
@@ -559,7 +559,15 @@ class AnalyseBasicJoinedData:
         Plots are for different antennas load-based classes of VCs""",
                                       label="load  is within  %s connections", saveas='hist_ring_by_load_group.png')
 
+        logger.info("plotting overall trajectories")
+        plots._plot_overall_trajectories(self.df, saveas="overall_trajectories.png")
 
+
+        logger.info("plotting uppsala trajectories")
+        self.contour = self._get_bounding_area(point=SWEREF_EPSG_uppsala)
+        t  = self.get_objects_within_area(self.df.copy().to_crs(SWEREF_EPSG), geom='geometry_gps_csv')
+        logger.debug("size of data for uppsala, %s "%str(t.shape))
+        plots._plot_overall_trajectories(t, saveas="uppsala_trajectories.png")
 
         #
         # series_length = 10

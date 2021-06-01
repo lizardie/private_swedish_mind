@@ -167,7 +167,6 @@ def _plot_antennas_usage(data, nbins=20, saveas='tmp.png'):
 
 
 
-
 def _plot_ring_hist_diffs_sample_size(series_diffs_pd, saveas):
     """
     plots differences between the histograms for sample and full data as a function of sample size
@@ -187,6 +186,23 @@ def _plot_ring_hist_diffs_sample_size(series_diffs_pd, saveas):
     plt.grid()
     plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
 
+
+def _plot_overall_trajectories(df, saveas):
+    """
+    makes overall trajectories plot
+    """
+
+    fig, ax1 = plt.subplots(figsize=(12, 20), )
+
+    for date, data in df.groupby(df['index'].dt.date):
+        data.plot(ax=ax1, label=date, alpha=1.0, markersize=15, )
+    # print(date, type(data))
+
+    ctx.add_basemap(ax=ax1, alpha=0.6)
+    plt.legend()
+    plt.title("selected tracks of TM and JO during 2017-2021")
+
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
 
 
 
