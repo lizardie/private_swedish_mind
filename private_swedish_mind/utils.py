@@ -63,7 +63,21 @@ def get_vcs_used_area(vcs, data, area_max):
     return vc_used, area
 
 
-def vc_area_splits(area, n_parts):
+# def vc_area_splits(area, n_parts):
+#     """
+#     given the Pandas Series with Voronoi cell areas, sorts the areas by accending order
+#     and splits into given number of parts.
+#
+#     Returns a list of tuples with splits borders, like `[(0.01, 2.63), (2.71, 24.67), (25.16, 184.09)]`
+#     """
+#
+#     splits = np.array_split(area.sort_values().round(2), n_parts)
+#     size_borders = [(el.iloc[0], el.iloc[-1]) for el in splits]
+#
+#     return size_borders
+
+
+def get_splits(load, n_parts, make_int=True):
     """
     given the Pandas Series with Voronoi cell areas, sorts the areas by accending order
     and splits into given number of parts.
@@ -71,10 +85,21 @@ def vc_area_splits(area, n_parts):
     Returns a list of tuples with splits borders, like `[(0.01, 2.63), (2.71, 24.67), (25.16, 184.09)]`
     """
 
-    splits = np.array_split(area.sort_values().round(2), n_parts)
-    size_borders = [(el.iloc[0], el.iloc[-1]) for el in splits]
+    splits = np.array_split(load.sort_values().round(2), n_parts)
+    if make_int:
+        size_borders = [(int(el.iloc[0]), int(el.iloc[-1])) for el in splits]
+    else:
+        size_borders = [(el.iloc[0], el.iloc[-1]) for el in splits]
 
     return size_borders
+
+
+def make_group_load_col(row, vcs, size_):
+    vc_idxs = [el for el in row]
+    #     areas = vcs.iloc[vc_idxs].geometry.area/10**6
+    loads_idxs = vcs.iloc[vc_idxs].num_ids_list
+
+    return [(el < size_[1]) & (el > size_[0]) for el in loads_idxs]
 
 
 
@@ -113,5 +138,6 @@ def make_diffs_ring_histogram_sample_size(hist_data, series_length):
 
     series_diffs_pd = pd.DataFrame(series_diffs, columns=sample_size)
     return series_diffs_pd
+
 
 

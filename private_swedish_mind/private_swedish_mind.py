@@ -19,13 +19,13 @@ import collections
 
 try:
     from private_swedish_mind.utils import make_hist_mpn_geoms, get_rings_around_cell,make_group_col,get_vcs_used_area,\
-        vc_area_splits
+        get_splits, make_group_load_col
     from private_swedish_mind.consts import  *
     import private_swedish_mind.plots
 
 except ModuleNotFoundError:
     from utils import make_hist_mpn_geoms, get_rings_around_cell, make_group_col, get_vcs_used_area,\
-        vc_area_splits
+        get_splits, make_group_load_col
     from consts import *
     import plots
 
@@ -66,6 +66,9 @@ long = 'llong'
 SE_SHAPEFILES = 'se_shapefiles/se_1km.shp'
 
 DATA_DIR = 'data'
+ANTENNAS_LOAD_DIR = 'data/antennas_load'
+
+
 
 
 class AnalyseBasicJoinedData:
@@ -93,6 +96,9 @@ class AnalyseBasicJoinedData:
         self.vcs = None
         self.n_layers = n_layers
         self.most_used_antennas = None
+        logger.info("reading antennas load files")
+        self.antennas_load = self.read_antennas_load()
+
 
     @staticmethod
     def read_data():
@@ -127,6 +133,31 @@ class AnalyseBasicJoinedData:
         return pd.concat(dfs, axis=0, ignore_index=True)
 
 
+    @staticmethod
+    def read_antennas_load():
+        """
+        reading data for given dates
+        """
+        paths = sorted([os.path.join(ANTENNAS_LOAD_DIR, f) for f in os.listdir(ANTENNAS_LOAD_DIR)])
+
+        dfs = []
+
+        for path in paths:
+            try:
+                tmp = pd.read_csv(path)
+                logger.info("number of lines: %s, location %s " %(tmp.shape[0], path))
+                dfs.append(tmp)
+            except IOError:
+                logger.error('path %s is wrong. check it.' % path)
+                pass
+            except KeyError:
+                logger.warning("some keys are  missing... check it at: %s" % path)
+                pass
+
+        return pd.concat(dfs, axis=0, ignore_index=True)
+
+
+
     def transform_df(self, ):
         """
         transforms string representation of a list to a Shapely point, and
@@ -150,12 +181,13 @@ class AnalyseBasicJoinedData:
 
         # return df
 
+
+
     def remove_too_often_antennas(self):
         """
 
         :return:
         """
-
         most_common_antennas = collections.Counter(self.df[geometry_mpn_csv]).most_common(50)
         # antennas[0].__str__()
         # print(most_common_antennas)
@@ -208,7 +240,35 @@ class AnalyseBasicJoinedData:
         logger.info("adding distance column")
         self.add_distance_column()
 
+        logger.info("processing antennas load")
+        self.antennas_load = self.process_antennas_load()
+        logger.info('done')
+        logger.info("adding loads columns")
+        self.add_hist_load_group_columns()
+
+
         return self.df
+
+
+    def process_antennas_load(self, coarse_grain_factor=100):
+        """
+        processing coords and summing up load for each position
+        """
+        self.antennas_load['X'] = coarse_grain_factor * ((self.antennas_load['avg_X'] / coarse_grain_factor).astype('int'))
+        self.antennas_load['Y'] = coarse_grain_factor * ((self.antennas_load['avg_Y'] / coarse_grain_factor).astype('int'))
+
+        self.antennas_load = self.antennas_load.groupby(['X', 'Y']).agg({'num_ids_list': 'sum', 'num_ids_set': 'sum'}) \
+            .reset_index()
+
+        self.antennas_data['X'] = self.antennas_data['geometry'].apply(
+            lambda val: coarse_grain_factor * int(val.x / coarse_grain_factor))
+        self.antennas_data['Y'] = self.antennas_data['geometry'].apply(
+            lambda val: coarse_grain_factor * int(val.y / coarse_grain_factor))
+
+        antennas_within_loads = pd.merge(self.antennas_load, self.antennas_data, how='right', left_on=['X', 'Y'],
+                                         right_on=['X', 'Y'])
+
+        return antennas_within_loads
 
 
 
@@ -234,6 +294,8 @@ class AnalyseBasicJoinedData:
             logger.error("something is wrong with the antennas files: %s, %s"%(G3_ANTENNAS_PATH, G4_ANTENNAS_PATH))
 
             return None
+
+
 
 
     def _get_bounding_area(self, point=None):
@@ -413,7 +475,7 @@ class AnalyseBasicJoinedData:
         tmp = self.vcs.to_crs(WGS84_EPSG)
         vc_used, area = get_vcs_used_area(tmp, self.df[[vc_index_gps, vc_index_mpn]], area_max=200)
 
-        size_borders = vc_area_splits(area, 3)
+        size_borders = get_splits(area, 3, make_int=False)
 
         for key, size_ in enumerate(size_borders):
             self.df['group' + str(key)] = self.df.apply(lambda row:
@@ -423,6 +485,31 @@ class AnalyseBasicJoinedData:
             self.df[hist + str(key)] = self.df[[hist, 'group' + str(key)]].apply(
                 lambda row: [el[0] for el in zip(row[hist], row['group' + str(key)]) if el[1] == True],
                 axis=1)
+
+
+
+    def add_hist_load_group_columns(self):
+        """
+        adding columns for different load groups
+
+        :return:
+        """
+        tmp = gpd.GeoDataFrame(self.antennas_load, crs=SWEREF_EPSG).to_crs(WGS84_EPSG)
+
+        logger.info("creating splits for antennas load")
+        load_borders = get_splits(self.antennas_load['num_ids_list'].dropna(), 3, make_int=True)
+        logger.info("done")
+
+
+        for key, size_ in enumerate(load_borders):
+            self.df['group_load' + str(key)] = self.df.apply(lambda row:
+                                                             make_group_load_col(row['vc_index_mpn'], tmp, size_),
+                                                             axis=1)
+
+            self.df['hist_load' + str(key)] = self.df[['hist', 'group_load' + str(key)]].apply(
+                lambda row: [el[0] for el in zip(row['hist'], row['group_load' + str(key)]) if el[1] == True],
+                axis=1)
+
 
 
     def add_distance_column(self):
@@ -461,8 +548,23 @@ class AnalyseBasicJoinedData:
         #
         # plots._plot_ring_histogram_by_group(size_borders_lst)
         logger.info('plotting ring histogram by group')
-        size_borders = vc_area_splits(area, 3)
-        plots._plot_ring_histogram_by_group(self.df[['hist', 'hist0', 'hist1', 'hist2']], size_borders)
+        size_borders = get_splits(area, 3, make_int=False)
+
+        # plots._plot_ring_histogram_by_group(self.df[['hist', 'hist0', 'hist1', 'hist2']], size_borders)
+
+        plots._plot_ring_histogram_by_group(self.df[['hist', 'hist0', 'hist1', 'hist2']], size_borders, title=
+        """Voronoi cell ring histogram for a GPS position. Number of MPN positions is %i,  number of timestamps is %i.
+        Plots are for different size-based classes of VCs""",
+                                      label="area is within  %s $km^2$", saveas='hist_ring_by_group.png')
+
+        logger.info('plotting ring histogram by load group')
+        load_borders = get_splits(self.antennas_load['num_ids_list'].dropna(), 3, make_int=True)
+        plots._plot_ring_histogram_by_group(self.df[['hist', 'hist_load0', 'hist_load1', 'hist_load2']], load_borders, title=
+        """Voronoi cell ring histogram for a GPS position. Number of MPN positions is %i,  number of timestamps is %i.
+        Plots are for different antennas load-based classes of VCs""",
+                                      label="load  is within  %s connections", saveas='hist_ring_by_load_group.png')
+
+
 
         #
         # series_length = 10

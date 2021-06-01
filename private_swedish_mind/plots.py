@@ -7,11 +7,14 @@ Module for plotting
 import  matplotlib.pyplot  as plt
 import  numpy as np
 import contextily as ctx
+import  os
 
 try:
     from consts import  *
 except:
     from private_swedish_mind.consts import  *
+
+
 
 def _plot_ring_hist(data, bins=None, density=True):
     """
@@ -105,46 +108,46 @@ def _plot_dist_hist(data, bins1=None, bins2=None):
     plt.savefig('../docs/pic1/hist_dist.png', bbox_inches="tight")
 
 
-
-def _plot_ring_histogram_by_group(data, size_borders):
+def _plot_ring_histogram_by_group(data, size_borders, title, label, saveas):
     """
     plots ring histogram for different groups of Voronoi cells, split by their area
     """
 
     n_hist = data.shape[1]
-    width_factor  = 0.8/n_hist
-    shift_factor = (n_hist-1)/2.0
+    width_factor = 0.8 / n_hist
+    shift_factor = (n_hist - 1) / 2.0
 
-    plt.figure(figsize=(15,10))
+    plt.figure(figsize=(15, 10))
     plt.xlabel('ring number')
-    plt.ylabel('number of occurencies')
+    plt.ylabel('number of occurences')
 
+    for key in range(n_hist - 1):
+        hst = [el for sublist in data[data.columns[key + 1]].to_list() for el in sublist]
+        #     print(hst)
 
-    for key in range(n_hist-1):
-        hst = [el for sublist in data[data.columns[key+1]].to_list() for el in sublist]
-    #     print(hst)
+        his = np.histogram(hst, bins=range(max(hst) + 2), density=True)
 
-        his = np.histogram(hst,bins=range(max(hst)+2), density=True)
-
-
-        plt.bar(his[1][:-1]+width_factor*(key-shift_factor), his[0], width=width_factor*(his[1][1]-his[1][0]),
-                label="area is within "+ str(size_borders[key])+ ' km^2',
-                linewidth=2, alpha=0.6,edgecolor='black'
-    )
+        plt.bar(his[1][:-1] + width_factor * (key - shift_factor), his[0], width=width_factor * (his[1][1] - his[1][0]),
+                #                 label="area is within "+ str(size_borders[key])+ ' $km^2$',
+                label=label % str(size_borders[key]),
+                linewidth=2, alpha=0.6, edgecolor='black'
+                )
 
     hst = [el for sublist in data[data.columns[0]].to_list() for el in sublist]
-    his = np.histogram(hst,bins=range(max(hst)+2), density=True)
-    plt.bar(his[1][:-1]+width_factor*(key-shift_factor+1), his[0], width=width_factor*(his[1][1]-his[1][0]),
-                label='without dividing  to classes',
-                linewidth=2, alpha=0.6,edgecolor='black', facecolor='black',hatch=r"//"
-    )
+    his = np.histogram(hst, bins=range(max(hst) + 2), density=True)
+    plt.bar(his[1][:-1] + width_factor * (key - shift_factor + 1), his[0], width=width_factor * (his[1][1] - his[1][0]),
+            label='without dividing  to classes',
+            linewidth=2, alpha=0.6, edgecolor='black', facecolor='black', hatch=r"//"
+            )
     plt.legend()
-    plt.title("""Voronoi cell ring histogram for a GPS position. Number of MPN positions is %i,  number of timestamps is %i.
-    Plots are for different size-based classes of VCs"""%
-                  (len(hst), data.shape[0]))
+    #     plt.title("""Voronoi cell ring histogram for a GPS position. Number of MPN positions is %i,  number of timestamps is %i.
+    #     Plots are for different size-based classes of VCs"""%
+    #                   (len(hst), data.shape[0]))
+    plt.title(title % (len(hst), data.shape[0]))
     # https://stackoverflow.com/questions/46913184/how-to-make-a-striped-patch-in-matplotlib
 
-    plt.savefig('../docs/pic1/hist_ring_by_group.png', bbox_inches = "tight")
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
+
 
 
 def _plot_antennas_usage(data, nbins=20, ):
