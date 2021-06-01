@@ -16,7 +16,7 @@ except:
 
 
 
-def _plot_ring_hist(data, bins=None, density=True):
+def _plot_ring_hist(data, bins=None, density=True, saveas='tmp.png'):
     """
     plotting histogram for rings
     """
@@ -36,11 +36,10 @@ def _plot_ring_hist(data, bins=None, density=True):
               (len(hst), data.shape[0]))
     plt.bar(his[1][:-1], his[0], width=0.8 * (his[1][1] - his[1][0]))
 
-    plt.savefig('../docs/pic1/hist_ring.png', bbox_inches="tight")
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
 
 
-
-def _plot_visited_vcs_sizes(vc_used, area, area_max):
+def _plot_visited_vcs_sizes(vc_used, area, area_max, saveas):
     """
     plotting Voronoi cells visited during all the collected tracks  along with their area distribution
     """
@@ -67,11 +66,10 @@ def _plot_visited_vcs_sizes(vc_used, area, area_max):
     ax2.set_ylabel('number of occurencies')
     ax1.set_title("Voronoi cells visited during all trips", fontsize=20)
 
-    plt.savefig('../docs/pic1/visited_vcs_sizes.png', bbox_inches="tight")
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
 
 
-
-def _plot_dist_hist(data, bins1=None, bins2=None):
+def _plot_dist_hist(data, bins1=None, bins2=None, saveas='tmp.png'):
     """
     plotting histogram for rings
     """
@@ -104,8 +102,7 @@ def _plot_dist_hist(data, bins1=None, bins2=None):
 
     ax1.bar(his1[1][:-1], his1[0], width=0.8 * (his1[1][1] - his1[1][0]))
     ax2.bar(his2[1][:-1], his2[0], width=0.8 * (his2[1][1] - his2[1][0]), color='red', edgecolor='black', alpha=0.5)
-
-    plt.savefig('../docs/pic1/hist_dist.png', bbox_inches="tight")
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
 
 
 def _plot_ring_histogram_by_group(data, size_borders, title, label, saveas):
@@ -150,7 +147,7 @@ def _plot_ring_histogram_by_group(data, size_borders, title, label, saveas):
 
 
 
-def _plot_antennas_usage(data, nbins=20, ):
+def _plot_antennas_usage(data, nbins=20, saveas='tmp.png'):
     x = [a[1] for a in data]
     plt.figure(figsize=(12, 8))
     # print(x)
@@ -165,13 +162,13 @@ def _plot_antennas_usage(data, nbins=20, ):
     plt.xlabel('antenna usage number, log scale')
     plt.ylabel("unique antenna number of occurrancies, log scale")
     plt.grid()
-    plt.savefig('../docs/pic1/most_used_antennas.png', bbox_inches="tight")
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
     # https://stackoverflow.com/questions/47850202/plotting-a-histogram-on-a-log-scale-with-matplotlib
 
 
 
 
-def _plot_ring_hist_diffs_sample_size(series_diffs_pd):
+def _plot_ring_hist_diffs_sample_size(series_diffs_pd, saveas):
     """
     plots differences between the histograms for sample and full data as a function of sample size
 
@@ -188,8 +185,7 @@ def _plot_ring_hist_diffs_sample_size(series_diffs_pd):
     series_length, series_diffs_pd.columns[-1]))
     plt.legend()
     plt.grid()
-
-    plt.savefig('../docs/pics/hist_ring_diffs_sample_size.png', bbox_inches="tight")
+    plt.savefig(os.path.join(PICS_LOCATION, saveas), bbox_inches="tight")
 
 
 

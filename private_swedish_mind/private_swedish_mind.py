@@ -531,31 +531,26 @@ class AnalyseBasicJoinedData:
         """
 
         logger.info('plotting  distance histogram')
-        plots._plot_dist_hist(self.df['distances'], bins1=20, bins2=2)
+        plots._plot_dist_hist(self.df['distances'], bins1=20, bins2=2, saveas="hist_dist.png")
+
         logger.info("plotting ring histogram")
-        plots._plot_ring_hist(self.df['hist'], density=False)
+        plots._plot_ring_hist(self.df['hist'], density=False, saveas="hist_ring.png")
 
         logger.info('plotting map and all visited VCs')
         vc_used, area = get_vcs_used_area(self.vcs, self.df[[vc_index_gps, vc_index_mpn]], area_max=200)
-        plots._plot_visited_vcs_sizes(vc_used, area, area_max=200)
+        plots._plot_visited_vcs_sizes(vc_used, area, area_max=200, saveas="visited_vcs_sizes.png")
 
         logger.info('plotting antennas usage histogram')
-        plots._plot_antennas_usage(self.most_used_antennas, nbins=50)
-        #
-        # size_borders = vc_area_splits(area, 3)
-        #
-        # size_borders_lst = _vc_index_area_match()
-        #
-        # plots._plot_ring_histogram_by_group(size_borders_lst)
+        plots._plot_antennas_usage(self.most_used_antennas, nbins=50, saveas="most_used_antennas.png")
+
+
         logger.info('plotting ring histogram by group')
         size_borders = get_splits(area, 3, make_int=False)
-
-        # plots._plot_ring_histogram_by_group(self.df[['hist', 'hist0', 'hist1', 'hist2']], size_borders)
-
         plots._plot_ring_histogram_by_group(self.df[['hist', 'hist0', 'hist1', 'hist2']], size_borders, title=
         """Voronoi cell ring histogram for a GPS position. Number of MPN positions is %i,  number of timestamps is %i.
         Plots are for different size-based classes of VCs""",
                                       label="area is within  %s $km^2$", saveas='hist_ring_by_group.png')
+
 
         logger.info('plotting ring histogram by load group')
         load_borders = get_splits(self.antennas_load['num_ids_list'].dropna(), 3, make_int=True)
@@ -568,7 +563,7 @@ class AnalyseBasicJoinedData:
 
         #
         # series_length = 10
-        # series_diffs_pd = make_diffs_ring_histogram_sample_size(read_df['hist'], series_length)
+        # series_diffs_pd = make_diffs_ring_histogram_sample_size(read_df['hist'], series_length, saveas="hist_ring_diffs_sample_size.png")
         #
         # _plot_ring_hist_diffs_sample_size(series_diffs_pd)
 
